@@ -1068,6 +1068,20 @@ async function exportPDF(tipo) {
     }
   });
 
+  // Rodape em todas as paginas
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    const pageW = doc.internal.pageSize.width;
+    const pageH = doc.internal.pageSize.height;
+    doc.setDrawColor(200);
+    doc.line(14, pageH - 12, pageW - 14, pageH - 12);
+    doc.text('© 2025 EIP Angola | Sistema de Gestão de EPI | Desenvolvido por João Oliveira', pageW / 2, pageH - 6, { align: 'center' });
+    doc.text('Página ' + i + ' de ' + pageCount, pageW - 14, pageH - 6, { align: 'right' });
+  }
+  
   doc.save('EIP_Angola_' + titulo.replace(/ /g,'_') + '_' + data.replace(/\//g,'-') + '.pdf');
 }
 
@@ -1078,25 +1092,59 @@ async function exportExcel(tipo) {
   const titulo = tipo === 'baixo' ? 'EPIs Stock Baixo' : 'Todos os EPIs';
   const data = new Date().toLocaleDateString('pt-PT');
 
+  const rodape = '© 2025 EIP Angola | Sistema de Gestão de EPI | Desenvolvido por João Oliveira';
+  
   const rows = [
-    ['EIP Angola - Sistema de Gestao de EPI'],
-    [titulo],
-    ['Data: ' + data],
+    ['EIP Angola - Sistema de Gestão de EPI', '', '', '', '', '', '', ''],
+    [titulo, '', '', '', '', '', '', ''],
+    ['Data: ' + data, '', '', '', '', '', '', ''],
     [],
-    ['EPI', 'Tamanho', 'Descricao', 'Qtd Existente', 'Qtd Minima', 'A Adquirir', 'Fornecedor', 'Referencia'],
-    ...lista.map(e => [e.nome, e.tamanho, e.descricao, e.stock_atual, e.stock_minimo, e.a_adquirir, e.fornecedor, e.referencia])
+    ['EPI', 'Tamanho', 'Descrição', 'Qtd Existente', 'Qtd Mínima', 'A Adquirir', 'Fornecedor', 'Referência'],
+    ...lista.map(e => [e.nome, e.tamanho, e.descricao, e.stock_atual, e.stock_minimo, e.a_adquirir, e.fornecedor, e.referencia]),
+    [],
+    [rodape]
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  
+
+  // Merge header cells
+  ws['!merges'] = [
+    { s: {r:0, c:0}, e: {r:0, c:7} },
+    { s: {r:1, c:0}, e: {r:1, c:7} },
+    { s: {r:2, c:0}, e: {r:2, c:7} },
+    { s: {r:rows.length-1, c:0}, e: {r:rows.length-1, c:7} }
+  ];
+
   // Column widths
   ws['!cols'] = [
     {wch:30},{wch:12},{wch:25},{wch:15},{wch:12},{wch:12},{wch:25},{wch:20}
   ];
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, titulo.substring(0,31));
-  XLSX.writeFile(wb, 'EIP_Angola_' + titulo.replace(/ /g,'_') + '_' + data.replace(/\//g,'-') + '.xlsx');
+  // Add logo image to Excel
+  try {
+    const wb2 = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb2, ws, titulo.substring(0,31));
+    
+    // Add logo as image if supported
+    if (wb2.SheetNames && window._logoB64) {
+      const imgData = window._logoB64;
+      if (!wb2.Sheets[titulo.substring(0,31)]['!images']) {
+        wb2.Sheets[titulo.substring(0,31)]['!images'] = [];
+      }
+      wb2.Sheets[titulo.substring(0,31)]['!images'].push({
+        name: 'logo.png',
+        data: imgData,
+        opts: { base64: true },
+        tl: { col: 0, row: 0 },
+        br: { col: 2, row: 2 }
+      });
+    }
+    XLSX.writeFile(wb2, 'EIP_Angola_' + titulo.replace(/ /g,'_') + '_' + data.replace(/\//g,'-') + '.xlsx');
+  } catch(e) {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, titulo.substring(0,31));
+    XLSX.writeFile(wb, 'EIP_Angola_' + titulo.replace(/ /g,'_') + '_' + data.replace(/\//g,'-') + '.xlsx');
+  }
 }
 
 // Fechar modal ao clicar fora
