@@ -581,32 +581,51 @@ sb.auth.onAuthStateChange(async (event, session) => {
 });
 
 async function loadProfile() {
-  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  if (!data) return;
-  currentProfile = data;
+  try {
+    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
 
-  if (!data.ativo && data.role !== 'admin') {
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app-screen').style.display = 'none';
-    showAlert('login-alert', '⏳ A tua conta está a aguardar aprovação do administrador.', 'warn');
+    if (error) {
+      showAlert('login-alert', 'Erro: ' + error.message, 'error');
+      await sb.auth.signOut();
+      return;
+    }
+
+    if (!data) {
+      showAlert('login-alert', 'Perfil nao encontrado. Contacte o administrador.', 'error');
+      await sb.auth.signOut();
+      return;
+    }
+
+    currentProfile = data;
+
+    if (!data.ativo && data.role !== 'admin') {
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app-screen').style.display = 'none';
+      showAlert('login-alert', 'Conta aguarda aprovacao do administrador.', 'warn');
+      await sb.auth.signOut();
+      return;
+    }
+
+    // Mostrar app
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'flex';
+    document.getElementById('app-footer').style.display = 'block';
+    document.getElementById('topbar-user-name').textContent = data.nome || data.email;
+
+    // Mostrar seccao admin
+    const isAdmin = data.role === 'admin';
+    document.getElementById('nav-admin-section').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('nav-utilizadores').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('btn-nova-entrada').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('btn-novo-colab').style.display = isAdmin ? 'flex' : 'none';
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'inline-flex' : 'none');
+
+    await loadAll();
+
+  } catch(e) {
+    showAlert('login-alert', 'Erro inesperado: ' + e.message, 'error');
     await sb.auth.signOut();
-    return;
   }
-
-  // Mostrar app
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'flex';
-  document.getElementById('topbar-user-name').textContent = data.nome || data.email;
-
-  // Mostrar secção admin
-  const isAdmin = data.role === 'admin';
-  document.getElementById('nav-admin-section').style.display = isAdmin ? 'block' : 'none';
-  document.getElementById('nav-utilizadores').style.display = isAdmin ? 'flex' : 'none';
-  document.getElementById('btn-nova-entrada').style.display = isAdmin ? 'flex' : 'none';
-  document.getElementById('btn-novo-colab').style.display = isAdmin ? 'flex' : 'none';
-  document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'inline-flex' : 'none');
-
-  await loadAll();
 }
 
 // ═══════════════════════════════ NAVEGAÇÃO ═══════════════════════════════
