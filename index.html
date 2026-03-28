@@ -299,7 +299,7 @@
       <!-- ── EPI's ── -->
       <div class="page" id="page-epis">
         <div class="page-header">
-          <div><div class="page-title">Catalogo de EPIs</div><div class="page-subtitle">Equipamentos de Proteção Individual</div></div>
+          <div><div class="page-title">Catálogo de EPI's</div><div class="page-subtitle">Equipamentos de Proteção Individual</div></div>
         </div>
         <div class="table-card">
           <div class="table-toolbar">
@@ -575,23 +575,14 @@ sb.auth.onAuthStateChange(async (event, session) => {
 async function loadProfile() {
   try {
     const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-    if (error) {
-      showAlert('login-alert', 'Erro BD: ' + error.message, 'error');
-      await sb.auth.signOut();
-      return;
-    }
-    if (!data) {
-      showAlert('login-alert', 'Perfil nao encontrado.', 'error');
-      await sb.auth.signOut();
-      return;
-    }
+    if (error) { showAlert('login-alert', 'Erro BD: ' + error.message, 'error'); await sb.auth.signOut(); return; }
+    if (!data) { showAlert('login-alert', 'Perfil nao encontrado.', 'error'); await sb.auth.signOut(); return; }
     currentProfile = data;
     if (!data.ativo && data.role !== 'admin') {
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('app-screen').style.display = 'none';
       showAlert('login-alert', 'Conta aguarda aprovacao.', 'warn');
-      await sb.auth.signOut();
-      return;
+      await sb.auth.signOut(); return;
     }
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'flex';
@@ -602,10 +593,7 @@ async function loadProfile() {
     document.getElementById('btn-nova-entrada').style.display = isAdmin ? 'flex' : 'none';
     document.getElementById('btn-novo-colab').style.display = isAdmin ? 'flex' : 'none';
     await loadAll();
-  } catch(e) {
-    showAlert('login-alert', 'Erro: ' + e.message, 'error');
-    await sb.auth.signOut();
-  }
+  } catch(e) { showAlert('login-alert', 'Erro: ' + e.message, 'error'); await sb.auth.signOut(); }
 }
 
 // ═══════════════════════════════ NAVEGAÇÃO ═══════════════════════════════
