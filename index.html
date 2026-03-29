@@ -297,7 +297,13 @@
         </div>
         <div class="stats-grid" id="dash-stats"></div>
         <div class="table-card">
-          <div class="table-toolbar"><strong style="font-size:15px;color:var(--navy);">⚠️ Alertas de Stock Baixo</strong></div>
+          <div class="table-toolbar">
+            <strong style="font-size:15px;color:var(--navy);">⚠️ Alertas de Stock Baixo</strong>
+            <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-danger btn-sm" onclick="pedidoCompraPDF()">📄 Pedido de Compra PDF</button>
+              <button class="btn btn-danger btn-sm admin-only" onclick="pedidoCompraExcel()" style="display:none;">📊 Pedido de Compra Excel</button>
+            </div>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>EPI</th><th>Tamanho</th><th>Stock Atual</th><th>Stock Mínimo</th><th>Estado</th></tr></thead><tbody id="dash-alerts-body"></tbody></table></div>
         </div>
       </div>
@@ -1257,6 +1263,104 @@ async function exportHistoricoPDF() {
 
   const nomeFile = colabNome.replace(/[^a-zA-Z0-9]/g, '_');
   doc.save('Historico_' + nomeFile + '_' + dataHoje.replace(/\//g, '-') + '.pdf');
+}
+
+
+// ═══════════════════════════════ PEDIDO DE COMPRA ═══════════════════════════════
+async function getPedidoCompraData() {
+  const lowStock = allEpis.filter(e => e.stock_atual <= e.stock_minimo);
+  if (!lowStock.length) { alert('Sem EPIs com stock baixo para gerar pedido.'); return null; }
+
+  const { data: entradas } = await sb.from('entradas')
+    .select('epi_id, fornecedor, referencia_fornecedor')
+    .order('data', { ascending: false });
+
+  const fornMap = {};
+  (entradas || []).forEach(e => {
+    if (!fornMap[e.epi_id]) fornMap[e.epi_id] = { fornecedor: e.fornecedor || '', ref: e.referencia_fornecedor || '' };
+  });
+
+  return lowStock.map(e => ({
+    nome: e.nome || '',
+    tamanho: e.tamanho || '',
+    descricao: e.descricao || '',
+    a_adquirir: Math.max(1, (e.stock_minimo || 0) - (e.stock_atual || 0)),
+    fornecedor: fornMap[e.id]?.fornecedor || '',
+    referencia: fornMap[e.id]?.ref || ''
+  }));
+}
+
+async function pedidoCompraPDF() {
+  const lista = await getPedidoCompraData();
+  if (!lista) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape' });
+  const data = new Date().toLocaleDateString('pt-PT');
+
+  try { doc.addImage('data:image/png;base64,' + window._logoB64, 'PNG', 14, 8, 60, 16); } catch(e) {}
+
+  doc.setFontSize(18); doc.setTextColor(27, 42, 74);
+  doc.text('Pedido de Compra', 80, 14);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text('Data: ' + data, 80, 20);
+  doc.text('Total de artigos: ' + lista.length, 80, 26);
+  doc.setDrawColor(27, 42, 74);
+  doc.line(14, 30, doc.internal.pageSize.width - 14, 30);
+
+  doc.autoTable({
+    startY: 35,
+    head: [['EPI', 'Tamanho', 'Descricao', 'Qtd a Adquirir', 'Fornecedor', 'Referencia']],
+    body: lista.map(e => [e.nome, e.tamanho, e.descricao, e.a_adquirir, e.fornecedor, e.referencia]),
+    headStyles: { fillColor: [200, 16, 46], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [255, 245, 245] },
+    styles: { fontSize: 9 },
+    columnStyles: { 3: { halign: 'center', fontStyle: 'bold', textColor: [200, 16, 46] } }
+  });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setTextColor(150);
+    const pageW = doc.internal.pageSize.width;
+    const pageH = doc.internal.pageSize.height;
+    doc.setDrawColor(200);
+    doc.line(14, pageH - 12, pageW - 14, pageH - 12);
+    doc.text('© 2025 EIP Angola | Sistema de Gestao de EPI | Desenvolvido por Joao Oliveira', pageW / 2, pageH - 6, { align: 'center' });
+    doc.text('Pagina ' + i + ' de ' + pageCount, pageW - 14, pageH - 6, { align: 'right' });
+  }
+
+  doc.save('Pedido_Compra_EIP_Angola_' + data.replace(/\//g, '-') + '.pdf');
+}
+
+async function pedidoCompraExcel() {
+  const lista = await getPedidoCompraData();
+  if (!lista) return;
+
+  const data = new Date().toLocaleDateString('pt-PT');
+  const rows = [
+    ['EIP Angola - Pedido de Compra', '', '', '', '', ''],
+    ['Data: ' + data, '', '', '', '', ''],
+    ['Total de artigos: ' + lista.length, '', '', '', '', ''],
+    [],
+    ['EPI', 'Tamanho', 'Descricao', 'Qtd a Adquirir', 'Fornecedor', 'Referencia'],
+    ...lista.map(e => [e.nome, e.tamanho, e.descricao, e.a_adquirir, e.fornecedor, e.referencia]),
+    [],
+    ['© 2025 EIP Angola | Sistema de Gestao de EPI | Desenvolvido por Joao Oliveira']
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!merges'] = [
+    { s: {r:0,c:0}, e: {r:0,c:5} },
+    { s: {r:1,c:0}, e: {r:1,c:5} },
+    { s: {r:2,c:0}, e: {r:2,c:5} },
+    { s: {r:rows.length-1,c:0}, e: {r:rows.length-1,c:5} }
+  ];
+  ws['!cols'] = [{wch:30},{wch:12},{wch:25},{wch:15},{wch:25},{wch:20}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pedido de Compra');
+  XLSX.writeFile(wb, 'Pedido_Compra_EIP_Angola_' + data.replace(/\//g, '-') + '.xlsx');
 }
 
 // Fechar modal ao clicar fora
