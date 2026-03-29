@@ -545,6 +545,15 @@ let currentProfile = null;
 let allEpis = [];
 let allColabs = [];
 
+// ── Verificar sessao existente ao carregar a pagina ──
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if (data?.session?.user) {
+    currentUser = data.session.user;
+    await loadProfile();
+  }
+})();
+
 // ═══════════════════════════════ AUTH ═══════════════════════════════
 function showLogin() {
   document.getElementById('login-form').style.display = 'block';
