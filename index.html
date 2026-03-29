@@ -99,7 +99,8 @@
     .topbar-logo img { height: 36px; filter: brightness(0) invert(1); }
     .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: .5px; }
     .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
-    .topbar-user { font-size: 13px; color: rgba(255,255,255,.75); }
+    .topbar-user { font-size: 13px; color: rgba(255,255,255,.75); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @media (max-width: 768px) { .topbar-user { max-width: 80px; font-size: 11px; } }
     .burger { display: none; background: none; border: none; color: white; cursor: pointer; font-size: 22px; }
 
     .layout { display: flex; flex: 1; }
@@ -634,7 +635,9 @@ async function loadProfile() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'flex';
     document.getElementById('app-footer').style.display = 'block';
-    document.getElementById('topbar-user-name').textContent = data.nome || data.email;
+    const nomeCompleto = data.nome || data.email;
+    const primeiroNome = nomeCompleto.split(' ')[0];
+    document.getElementById('topbar-user-name').textContent = window.innerWidth < 768 ? primeiroNome : nomeCompleto;
 
     // Mostrar seccao admin
     const isAdmin = data.role === 'admin';
