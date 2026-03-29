@@ -517,7 +517,10 @@
       <div class="form-group"><label>Nome *</label><input type="text" id="edit-epi-nome"></div>
       <div class="form-group"><label>Tamanho</label><input type="text" id="edit-epi-tamanho" placeholder="Ex: M, L, XL, 42..."></div>
       <div class="form-group"><label>Descrição</label><input type="text" id="edit-epi-descricao" placeholder="Opcional"></div>
-      <div class="form-group"><label>Stock Mínimo</label><input type="number" id="edit-epi-stock-min" min="0" value="5"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Stock Atual</label><input type="number" id="edit-epi-stock-atual" min="0" value="0"></div>
+        <div class="form-group"><label>Stock Mínimo</label><input type="number" id="edit-epi-stock-min" min="0" value="5"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" onclick="deleteEpi()" style="margin-right:auto;">🗑️ Apagar EPI</button>
@@ -1459,6 +1462,7 @@ function openEditEpiModal(id) {
   document.getElementById('edit-epi-nome').value = e.nome || '';
   document.getElementById('edit-epi-tamanho').value = e.tamanho || '';
   document.getElementById('edit-epi-descricao').value = e.descricao || '';
+  document.getElementById('edit-epi-stock-atual').value = e.stock_atual || 0;
   document.getElementById('edit-epi-stock-min').value = e.stock_minimo || 5;
   document.getElementById('edit-epi-alert').innerHTML = '';
   openModal('modal-edit-epi');
@@ -1470,10 +1474,11 @@ async function saveEditEpi() {
   const tamanho = document.getElementById('edit-epi-tamanho').value.trim() || null;
   const descricao = document.getElementById('edit-epi-descricao').value.trim() || null;
   const stock_minimo = parseInt(document.getElementById('edit-epi-stock-min').value) || 0;
+  const stock_atual = parseInt(document.getElementById('edit-epi-stock-atual').value) || 0;
 
   if (!nome) return showAlert('edit-epi-alert', 'Nome é obrigatório.', 'error');
 
-  const { error } = await sb.from('epis').update({ nome, tamanho, descricao, stock_minimo }).eq('id', id);
+  const { error } = await sb.from('epis').update({ nome, tamanho, descricao, stock_minimo, stock_atual }).eq('id', id);
   if (error) return showAlert('edit-epi-alert', error.message, 'error');
 
   closeModal('modal-edit-epi');
