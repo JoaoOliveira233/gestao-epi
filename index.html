@@ -503,6 +503,29 @@
   </div>
 </div>
 
+
+<!-- Modal Editar EPI -->
+<div class="modal-overlay" id="modal-edit-epi">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Editar EPI</span>
+      <button class="modal-close" onclick="closeModal('modal-edit-epi')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="edit-epi-alert"></div>
+      <input type="hidden" id="edit-epi-id">
+      <div class="form-group"><label>Nome *</label><input type="text" id="edit-epi-nome"></div>
+      <div class="form-group"><label>Tamanho</label><input type="text" id="edit-epi-tamanho" placeholder="Ex: M, L, XL, 42..."></div>
+      <div class="form-group"><label>Descrição</label><input type="text" id="edit-epi-descricao" placeholder="Opcional"></div>
+      <div class="form-group"><label>Stock Mínimo</label><input type="number" id="edit-epi-stock-min" min="0" value="5"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deleteEpi()" style="margin-right:auto;">🗑️ Apagar EPI</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-epi')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditEpi()">Guardar</button>
+    </div>
+  </div>
+</div>
 <!-- Modal Stock Mínimo -->
 <div class="modal-overlay" id="modal-stock-min">
   <div class="modal">
@@ -733,7 +756,10 @@ function renderEpis() {
       <td style="color:${e.stock_danificado > 0 ? 'var(--danger)' : 'var(--gray-400)'};">${e.stock_danificado}</td>
       <td>${e.stock_minimo}</td>
       <td><span class="badge ${e.stock_atual === 0 ? 'badge-red' : e.stock_atual <= e.stock_minimo ? 'badge-yellow' : 'badge-green'}">${e.stock_atual === 0 ? 'Esgotado' : e.stock_atual <= e.stock_minimo ? 'Baixo' : 'OK'}</span></td>
-      <td>${isAdmin ? `<button class="btn btn-outline btn-sm" onclick="openStockMinModal('${e.id}','${e.nome} ${e.tamanho || ''}',${e.stock_minimo})">Stock Mín.</button>` : ''}</td>
+      <td style="display:flex;gap:6px;">${isAdmin ? `
+        <button class="btn btn-outline btn-sm" onclick="openStockMinModal('${e.id}','${e.nome} ${e.tamanho || ''}',${e.stock_minimo})">Stock Mín.</button>
+        <button class="btn btn-primary btn-sm" onclick="openEditEpiModal('${e.id}')">✏️ Editar</button>
+      ` : ''}</td>
     </tr>
   `).join('');
 }
@@ -1422,6 +1448,58 @@ async function pedidoCompraExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Pedido de Compra');
   XLSX.writeFile(wb, 'Pedido_Compra_EIP_Angola_' + data.replace(/\//g, '-') + '.xlsx');
+}
+
+
+// ═══════════════════════════════ EDITAR EPI ═══════════════════════════════
+function openEditEpiModal(id) {
+  const e = allEpis.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('edit-epi-id').value = e.id;
+  document.getElementById('edit-epi-nome').value = e.nome || '';
+  document.getElementById('edit-epi-tamanho').value = e.tamanho || '';
+  document.getElementById('edit-epi-descricao').value = e.descricao || '';
+  document.getElementById('edit-epi-stock-min').value = e.stock_minimo || 5;
+  document.getElementById('edit-epi-alert').innerHTML = '';
+  openModal('modal-edit-epi');
+}
+
+async function saveEditEpi() {
+  const id = document.getElementById('edit-epi-id').value;
+  const nome = document.getElementById('edit-epi-nome').value.trim();
+  const tamanho = document.getElementById('edit-epi-tamanho').value.trim() || null;
+  const descricao = document.getElementById('edit-epi-descricao').value.trim() || null;
+  const stock_minimo = parseInt(document.getElementById('edit-epi-stock-min').value) || 0;
+
+  if (!nome) return showAlert('edit-epi-alert', 'Nome é obrigatório.', 'error');
+
+  const { error } = await sb.from('epis').update({ nome, tamanho, descricao, stock_minimo }).eq('id', id);
+  if (error) return showAlert('edit-epi-alert', error.message, 'error');
+
+  closeModal('modal-edit-epi');
+  await loadAll();
+  renderEpis();
+}
+
+async function deleteEpi() {
+  const id = document.getElementById('edit-epi-id').value;
+  const nome = document.getElementById('edit-epi-nome').value;
+  if (!confirm('Tem a certeza que quer apagar "' + nome + '"? Esta ação não pode ser revertida.')) return;
+
+  // Check if EPI has movements
+  const { data: entradas } = await sb.from('entradas').select('id').eq('epi_id', id).limit(1);
+  const { data: saidas } = await sb.from('saidas').select('id').eq('epi_id', id).limit(1);
+
+  if ((entradas && entradas.length) || (saidas && saidas.length)) {
+    return showAlert('edit-epi-alert', 'Nao e possivel apagar este EPI pois tem movimentos registados.', 'error');
+  }
+
+  const { error } = await sb.from('epis').delete().eq('id', id);
+  if (error) return showAlert('edit-epi-alert', error.message, 'error');
+
+  closeModal('modal-edit-epi');
+  await loadAll();
+  renderEpis();
 }
 
 // Fechar modal ao clicar fora
