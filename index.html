@@ -1310,7 +1310,7 @@ async function pedidoCompraPDF() {
 
   doc.autoTable({
     startY: 35,
-    head: [['EPI', 'Tamanho', 'Descricao', 'Qtd a Adquirir', 'Fornecedor', 'Referencia']],
+    head: [['EPI', 'Tamanho', 'Descricao', 'Qtd a Adquirir', 'Fornecedor', 'Ref. Fornecedor']],
     body: lista.map(e => [e.nome, e.tamanho, e.descricao, e.a_adquirir, e.fornecedor, e.referencia]),
     headStyles: { fillColor: [200, 16, 46], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [255, 245, 245] },
