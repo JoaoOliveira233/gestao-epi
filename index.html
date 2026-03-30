@@ -855,6 +855,7 @@ function renderEpis() {
 // ═══════════════════════════════ ENTRADAS ═══════════════════════════════
 async function renderEntradas() {
   const { data } = await sb.from('entradas').select('*, epis(nome,tamanho)').order('data', { ascending: false }).limit(200);
+  window._entradasData = data || [];
   const body = document.getElementById('entradas-body');
   if (!data?.length) { body.innerHTML = '<tr><td colspan="8" class="empty-state"><div class="empty-icon">📦</div>Sem entradas registadas</td></tr>'; return; }
   const isAdminE = currentProfile?.role === 'admin';
@@ -869,7 +870,7 @@ async function renderEntradas() {
       <td>${r.preco_kwanzas ? r.preco_kwanzas.toLocaleString('pt-PT') + ' Kz' : '—'}</td>
       <td>${r.preco_dolares ? '$ ' + r.preco_dolares.toFixed(2) : '—'}</td>
       <td style="display:flex;gap:4px;">${isAdminE ? `
-        <button class="btn btn-primary btn-sm" onclick="openEditEntradaModal(${JSON.stringify(r).replace(/'/g,'&#39;')})">✏️</button>
+        <button class="btn btn-primary btn-sm" onclick="openEditEntradaModal('${r.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="deleteEntrada('${r.id}','${r.epi_id}',${r.quantidade})">🗑️</button>
       ` : ''}</td>
     </tr>
@@ -1636,7 +1637,9 @@ async function deleteColab(id, nome) {
 
 
 // ═══════════════════════════════ EDITAR ENTRADA ═══════════════════════════════
-function openEditEntradaModal(r) {
+function openEditEntradaModal(id) {
+  const r = (window._entradasData || []).find(x => x.id === id);
+  if (!r) return alert('Erro ao carregar entrada.');
   document.getElementById('ee-id').value = r.id;
   document.getElementById('ee-epi-id').value = r.epi_id;
   document.getElementById('ee-qtd-original').value = r.quantidade;
