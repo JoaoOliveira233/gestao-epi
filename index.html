@@ -511,6 +511,39 @@
 </div>
 
 
+
+<!-- Modal Editar Entrada -->
+<div class="modal-overlay" id="modal-edit-entrada">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Editar Entrada</span>
+      <button class="modal-close" onclick="closeModal('modal-edit-entrada')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="edit-entrada-alert"></div>
+      <input type="hidden" id="ee-id">
+      <input type="hidden" id="ee-epi-id">
+      <input type="hidden" id="ee-qtd-original">
+      <div class="form-group"><label>EPI</label><input type="text" id="ee-epi-nome" readonly style="background:var(--gray-50);"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Data *</label><input type="date" id="ee-data"></div>
+        <div class="form-group"><label>Quantidade *</label><input type="number" id="ee-quantidade" min="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Fornecedor</label><input type="text" id="ee-fornecedor"></div>
+        <div class="form-group"><label>Ref. Fornecedor</label><input type="text" id="ee-ref"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Preço (Kz)</label><input type="number" id="ee-preco-kz" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label>Preço ($)</label><input type="number" id="ee-preco-usd" min="0" step="0.01" placeholder="0.00"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-entrada')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditEntrada()">Guardar</button>
+    </div>
+  </div>
+</div>
 <!-- Modal Editar EPI -->
 <div class="modal-overlay" id="modal-edit-epi">
   <div class="modal">
@@ -835,7 +868,10 @@ async function renderEntradas() {
       <td style="font-size:13px;">${r.referencia_fornecedor || '—'}</td>
       <td>${r.preco_kwanzas ? r.preco_kwanzas.toLocaleString('pt-PT') + ' Kz' : '—'}</td>
       <td>${r.preco_dolares ? '$ ' + r.preco_dolares.toFixed(2) : '—'}</td>
-      <td>${isAdminE ? `<button class="btn btn-danger btn-sm" onclick="deleteEntrada('${r.id}','${r.epi_id}',${r.quantidade})">🗑️</button>` : ''}</td>
+      <td style="display:flex;gap:4px;">${isAdminE ? `
+        <button class="btn btn-primary btn-sm" onclick="openEditEntradaModal(${JSON.stringify(r).replace(/'/g,'&#39;')})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEntrada('${r.id}','${r.epi_id}',${r.quantidade})">🗑️</button>
+      ` : ''}</td>
     </tr>
   `).join('');
 }
@@ -1596,6 +1632,58 @@ async function deleteColab(id, nome) {
   const { data } = await sb.from('colaboradores').select('*').order('nome');
   allColabs = data || [];
   renderColabs();
+}
+
+
+// ═══════════════════════════════ EDITAR ENTRADA ═══════════════════════════════
+function openEditEntradaModal(r) {
+  document.getElementById('ee-id').value = r.id;
+  document.getElementById('ee-epi-id').value = r.epi_id;
+  document.getElementById('ee-qtd-original').value = r.quantidade;
+  document.getElementById('ee-epi-nome').value = (r.epis?.nome || '') + (r.epis?.tamanho ? ' - ' + r.epis.tamanho : '');
+  document.getElementById('ee-data').value = r.data;
+  document.getElementById('ee-quantidade').value = r.quantidade;
+  document.getElementById('ee-fornecedor').value = r.fornecedor || '';
+  document.getElementById('ee-ref').value = r.referencia_fornecedor || '';
+  document.getElementById('ee-preco-kz').value = r.preco_kwanzas || '';
+  document.getElementById('ee-preco-usd').value = r.preco_dolares || '';
+  document.getElementById('edit-entrada-alert').innerHTML = '';
+  openModal('modal-edit-entrada');
+}
+
+async function saveEditEntrada() {
+  const id = document.getElementById('ee-id').value;
+  const epiId = document.getElementById('ee-epi-id').value;
+  const qtdOriginal = parseInt(document.getElementById('ee-qtd-original').value);
+  const qtdNova = parseInt(document.getElementById('ee-quantidade').value);
+  const data = document.getElementById('ee-data').value;
+
+  if (!qtdNova || !data) return showAlert('edit-entrada-alert', 'Data e quantidade são obrigatórias.', 'error');
+
+  const payload = {
+    quantidade: qtdNova,
+    data,
+    fornecedor: document.getElementById('ee-fornecedor').value.trim() || null,
+    referencia_fornecedor: document.getElementById('ee-ref').value.trim() || null,
+    preco_kwanzas: parseFloat(document.getElementById('ee-preco-kz').value) || null,
+    preco_dolares: parseFloat(document.getElementById('ee-preco-usd').value) || null
+  };
+
+  const { error } = await sb.from('entradas').update(payload).eq('id', id);
+  if (error) return showAlert('edit-entrada-alert', error.message, 'error');
+
+  // Ajustar stock se quantidade mudou
+  if (qtdNova !== qtdOriginal) {
+    const epi = allEpis.find(e => e.id === epiId);
+    if (epi) {
+      const diff = qtdNova - qtdOriginal;
+      await sb.from('epis').update({ stock_atual: epi.stock_atual + diff }).eq('id', epiId);
+    }
+  }
+
+  closeModal('modal-edit-entrada');
+  await loadAll();
+  renderEntradas();
 }
 
 // Fechar modal ao clicar fora
