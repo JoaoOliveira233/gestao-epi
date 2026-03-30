@@ -602,7 +602,9 @@ function sortTable(tbodyId, colIndex, type) {
     const aVal = a.cells[colIndex]?.textContent.trim() || '';
     const bVal = b.cells[colIndex]?.textContent.trim() || '';
     if (type === 'num') {
-      return asc ? parseFloat(aVal)||0 - (parseFloat(bVal)||0) : (parseFloat(bVal)||0) - (parseFloat(aVal)||0);
+      const aNum = parseFloat(aVal.replace(/[^0-9.]/g,'')) || 0;
+      const bNum = parseFloat(bVal.replace(/[^0-9.]/g,'')) || 0;
+      return asc ? aNum - bNum : bNum - aNum;
     }
     if (type === 'date') {
       return asc ? new Date(aVal) - new Date(bVal) : new Date(bVal) - new Date(aVal);
