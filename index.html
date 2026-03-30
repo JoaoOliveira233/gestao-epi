@@ -202,6 +202,10 @@
       .login-card { padding: 32px 20px; }
       .stats-grid { grid-template-columns: 1fr; }
     }
+    thead th.sortable { cursor: pointer; user-select: none; }
+    thead th.sortable:hover { background: var(--gray-200); color: var(--navy); }
+    thead th.sort-asc::after { content: ' ↑'; color: var(--navy); }
+    thead th.sort-desc::after { content: ' ↓'; color: var(--navy); }
   </style>
 </head>
 <body>
@@ -308,7 +312,7 @@
               <button class="btn btn-danger btn-sm admin-only" onclick="pedidoCompraExcel()" style="display:none;">📊 Pedido de Compra Excel</button>
             </div>
           </div>
-          <div class="table-wrap"><table><thead><tr><th>EPI</th><th>Tamanho</th><th>Stock Atual</th><th>Stock Mínimo</th><th>Estado</th></tr></thead><tbody id="dash-alerts-body"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th class="sortable" onclick="sortTable('dash-alerts-body',0,'str')">EPI</th><th class="sortable" onclick="sortTable('dash-alerts-body',1,'str')">Tamanho</th><th class="sortable" onclick="sortTable('dash-alerts-body',2,'num')">Stock Atual</th><th class="sortable" onclick="sortTable('dash-alerts-body',3,'num')">Stock Mínimo</th><th>Estado</th></tr></thead><tbody id="dash-alerts-body"></tbody></table></div>
         </div>
       </div>
 
@@ -339,7 +343,7 @@
             <input class="search-input" placeholder="🔍 Pesquisar..." oninput="filterTable('entradas-body', this.value)">
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Data</th><th>EPI</th><th>Tamanho</th><th>Qtd</th><th>Fornecedor</th><th>Referência</th><th>Preço (Kz)</th><th>Preço ($)</th><th></th></tr></thead>
+            <thead><tr><th class="sortable" onclick="sortTable('entradas-body',0,'date')">Data</th><th class="sortable" onclick="sortTable('entradas-body',1,'str')">EPI</th><th class="sortable" onclick="sortTable('entradas-body',2,'str')">Tamanho</th><th class="sortable" onclick="sortTable('entradas-body',3,'num')">Qtd</th><th class="sortable" onclick="sortTable('entradas-body',4,'str')">Fornecedor</th><th>Referência</th><th class="sortable" onclick="sortTable('entradas-body',6,'num')">Preço (Kz)</th><th class="sortable" onclick="sortTable('entradas-body',7,'num')">Preço ($)</th><th></th></tr></thead>
             <tbody id="entradas-body"></tbody>
           </table></div>
         </div>
@@ -356,7 +360,7 @@
             <input class="search-input" placeholder="🔍 Pesquisar..." oninput="filterTable('saidas-body', this.value)">
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Data</th><th>Colaborador</th><th>EPI</th><th>Entregue</th><th>Devolvido</th><th></th></tr></thead>
+            <thead><tr><th class="sortable" onclick="sortTable('saidas-body',0,'date')">Data</th><th class="sortable" onclick="sortTable('saidas-body',1,'str')">Colaborador</th><th class="sortable" onclick="sortTable('saidas-body',2,'str')">EPI</th><th class="sortable" onclick="sortTable('saidas-body',3,'num')">Entregue</th><th class="sortable" onclick="sortTable('saidas-body',4,'num')">Devolvido</th><th></th></tr></thead>
             <tbody id="saidas-body"></tbody>
           </table></div>
         </div>
@@ -373,7 +377,7 @@
             <input class="search-input" placeholder="🔍 Pesquisar colaborador..." oninput="filterTable('colab-body', this.value)">
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Nome</th><th>Nº Mec.</th><th>Função</th><th>Estado</th><th>Ações</th></tr></thead>
+            <thead><tr><th class="sortable" onclick="sortTable('colab-body',0,'str')">Nome</th><th class="sortable" onclick="sortTable('colab-body',1,'str')">Nº Mec.</th><th class="sortable" onclick="sortTable('colab-body',2,'str')">Função</th><th class="sortable" onclick="sortTable('colab-body',3,'str')">Estado</th><th>Ações</th></tr></thead>
             <tbody id="colab-body"></tbody>
           </table></div>
         </div>
@@ -396,7 +400,7 @@
           <div class="stats-grid" id="hist-stats"></div>
           <div class="table-card">
             <div class="table-wrap"><table>
-              <thead><tr><th>Data</th><th>EPI</th><th>Tamanho</th><th>Entregue</th><th>Devolvido</th><th>Consumo Real</th></tr></thead>
+              <thead><tr><th class="sortable" onclick="sortTable('historico-body',0,'date')">Data</th><th class="sortable" onclick="sortTable('historico-body',1,'str')">EPI</th><th class="sortable" onclick="sortTable('historico-body',2,'str')">Tamanho</th><th class="sortable" onclick="sortTable('historico-body',3,'num')">Entregue</th><th class="sortable" onclick="sortTable('historico-body',4,'num')">Devolvido</th><th class="sortable" onclick="sortTable('historico-body',5,'num')">Consumo Real</th></tr></thead>
               <tbody id="historico-body"></tbody>
             </table></div>
           </div>
@@ -415,7 +419,7 @@
         <div class="table-card">
           <div class="table-toolbar"><strong style="font-size:15px;color:var(--navy);">Todos os Utilizadores</strong></div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Nome / Email</th><th>Papel</th><th>Estado</th><th>Desde</th><th>Ações</th></tr></thead>
+            <thead><tr><th class="sortable" onclick="sortTable('users-body',0,'str')">Nome / Email</th><th class="sortable" onclick="sortTable('users-body',1,'str')">Papel</th><th>Estado</th><th class="sortable" onclick="sortTable('users-body',3,'date')">Desde</th><th>Ações</th></tr></thead>
             <tbody id="users-body"></tbody>
           </table></div>
         </div>
@@ -577,6 +581,36 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 // ── ESTADO ──
 let currentUser = null;
+// Sort state per table
+const sortState = {};
+
+function sortTable(tbodyId, colIndex, type) {
+  const key = tbodyId + '_' + colIndex;
+  const current = sortState[key];
+  const asc = current !== 'asc';
+  sortState[key] = asc ? 'asc' : 'desc';
+
+  // Reset all headers in this table
+  const tbody = document.getElementById(tbodyId);
+  const thead = tbody.closest('table').querySelector('thead');
+  thead.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+  const ths = thead.querySelectorAll('th');
+  if (ths[colIndex]) ths[colIndex].classList.add(asc ? 'sort-asc' : 'sort-desc');
+
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a, b) => {
+    const aVal = a.cells[colIndex]?.textContent.trim() || '';
+    const bVal = b.cells[colIndex]?.textContent.trim() || '';
+    if (type === 'num') {
+      return asc ? parseFloat(aVal)||0 - (parseFloat(bVal)||0) : (parseFloat(bVal)||0) - (parseFloat(aVal)||0);
+    }
+    if (type === 'date') {
+      return asc ? new Date(aVal) - new Date(bVal) : new Date(bVal) - new Date(aVal);
+    }
+    return asc ? aVal.localeCompare(bVal, 'pt') : bVal.localeCompare(aVal, 'pt');
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
 let currentProfile = null;
 let allEpis = [];
 let allColabs = [];
