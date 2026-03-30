@@ -339,7 +339,7 @@
             <input class="search-input" placeholder="🔍 Pesquisar..." oninput="filterTable('entradas-body', this.value)">
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Data</th><th>EPI</th><th>Tamanho</th><th>Qtd</th><th>Fornecedor</th><th>Referência</th><th>Preço (Kz)</th><th>Preço ($)</th></tr></thead>
+            <thead><tr><th>Data</th><th>EPI</th><th>Tamanho</th><th>Qtd</th><th>Fornecedor</th><th>Referência</th><th>Preço (Kz)</th><th>Preço ($)</th><th></th></tr></thead>
             <tbody id="entradas-body"></tbody>
           </table></div>
         </div>
@@ -356,7 +356,7 @@
             <input class="search-input" placeholder="🔍 Pesquisar..." oninput="filterTable('saidas-body', this.value)">
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Data</th><th>Colaborador</th><th>EPI</th><th>Entregue</th><th>Devolvido</th></tr></thead>
+            <thead><tr><th>Data</th><th>Colaborador</th><th>EPI</th><th>Entregue</th><th>Devolvido</th><th></th></tr></thead>
             <tbody id="saidas-body"></tbody>
           </table></div>
         </div>
@@ -585,6 +585,14 @@ let allColabs = [];
 (async () => {
   const { data } = await sb.auth.getSession();
   if (data?.session?.user) {
+    // Check if session is older than 30 minutes
+    const loginTime = localStorage.getItem('eip_login_time');
+    const now = Date.now();
+    if (loginTime && (now - parseInt(loginTime)) > 30 * 60 * 1000) {
+      await sb.auth.signOut();
+      localStorage.removeItem('eip_login_time');
+      return;
+    }
     currentUser = data.session.user;
     await loadProfile();
   }
@@ -608,7 +616,11 @@ async function doLogin() {
   if (!email || !pw) return showAlert('login-alert', 'Preencha email e password.', 'error');
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
   if (error) return showAlert('login-alert', error.message, 'error');
-  if (data?.user) { currentUser = data.user; await loadProfile(); }
+  if (data?.user) { 
+    currentUser = data.user; 
+    localStorage.setItem('eip_login_time', Date.now().toString());
+    await loadProfile(); 
+  }
 }
 
 async function doRegister() {
@@ -625,6 +637,7 @@ async function doRegister() {
 
 async function doLogout() {
   await sb.auth.signOut();
+  localStorage.removeItem('eip_login_time');
   currentUser = null;
   currentProfile = null;
   document.getElementById('login-screen').style.display = 'flex';
@@ -775,6 +788,7 @@ async function renderEntradas() {
   const { data } = await sb.from('entradas').select('*, epis(nome,tamanho)').order('data', { ascending: false }).limit(200);
   const body = document.getElementById('entradas-body');
   if (!data?.length) { body.innerHTML = '<tr><td colspan="8" class="empty-state"><div class="empty-icon">📦</div>Sem entradas registadas</td></tr>'; return; }
+  const isAdminE = currentProfile?.role === 'admin';
   body.innerHTML = data.map(r => `
     <tr>
       <td>${r.data}</td>
@@ -785,6 +799,7 @@ async function renderEntradas() {
       <td style="font-size:13px;">${r.referencia_fornecedor || '—'}</td>
       <td>${r.preco_kwanzas ? r.preco_kwanzas.toLocaleString('pt-PT') + ' Kz' : '—'}</td>
       <td>${r.preco_dolares ? '$ ' + r.preco_dolares.toFixed(2) : '—'}</td>
+      <td>${isAdminE ? `<button class="btn btn-danger btn-sm" onclick="deleteEntrada('${r.id}','${r.epi_id}',${r.quantidade})">🗑️</button>` : ''}</td>
     </tr>
   `).join('');
 }
@@ -842,6 +857,7 @@ async function renderSaidas() {
   const { data } = await sb.from('saidas').select('*, epis(nome,tamanho), colaboradores(nome)').order('data', { ascending: false }).limit(200);
   const body = document.getElementById('saidas-body');
   if (!data?.length) { body.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-icon">🔄</div>Sem saídas registadas</td></tr>'; return; }
+  const isAdminS = currentProfile?.role === 'admin';
   body.innerHTML = data.map(r => `
     <tr>
       <td>${r.data}</td>
@@ -849,6 +865,7 @@ async function renderSaidas() {
       <td>${r.epis?.nome || '—'} ${r.epis?.tamanho ? '(' + r.epis.tamanho + ')' : ''}</td>
       <td><strong>${r.quantidade_entregue}</strong></td>
       <td>${r.quantidade_devolvida || 0}</td>
+      <td>${isAdminS ? `<button class="btn btn-danger btn-sm" onclick="deleteSaida('${r.id}','${r.epi_id}',${r.quantidade_entregue},${r.quantidade_devolvida||0})">🗑️</button>` : ''}</td>
     </tr>
   `).join('');
 }
@@ -906,7 +923,10 @@ function renderColabs() {
       <td>${c.numero_mecanografico}</td>
       <td>${c.funcao || '—'}</td>
       <td><span class="badge ${c.ativo ? 'badge-green' : 'badge-gray'}">${c.ativo ? 'Ativo' : 'Inativo'}</span></td>
-      <td>${isAdmin ? `<button class="btn btn-outline btn-sm" onclick="editColab('${c.id}')">Editar</button>` : ''}</td>
+      <td style="display:flex;gap:6px;">${isAdmin ? `
+        <button class="btn btn-outline btn-sm" onclick="editColab('${c.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteColab('${c.id}','${c.nome}')">🗑️</button>
+      ` : ''}</td>
     </tr>
   `).join('');
 }
@@ -1018,7 +1038,7 @@ async function renderUtilizadores() {
   badge.textContent = n;
 
   const body = document.getElementById('users-body');
-  const activeUsers = (users || []).filter(u => u.role !== 'pendente' && u.ativo);
+  const activeUsers = (users || []).filter(u => u.ativo && u.role !== 'pendente');
   body.innerHTML = activeUsers.map(u => `
     <tr>
       <td><strong>${u.nome || '—'}</strong><br><span style="font-size:12px;color:var(--gray-400);">${u.email}</span></td>
@@ -1041,7 +1061,12 @@ async function rejectUser(id) {
 }
 async function removeUser(id) {
   if (!confirm('Remover este utilizador do sistema?')) return;
-  await sb.from('profiles').update({ ativo: false }).eq('id', id);
+  // Tenta apagar o perfil, se nao conseguir desactiva
+  const { error } = await sb.from('profiles').delete().eq('id', id);
+  if (error) {
+    // Tem registos associados - apenas desactiva
+    await sb.from('profiles').update({ ativo: false }).eq('id', id);
+  }
   renderUtilizadores();
 }
 
@@ -1492,22 +1517,49 @@ async function saveEditEpi() {
 async function deleteEpi() {
   const id = document.getElementById('edit-epi-id').value;
   const nome = document.getElementById('edit-epi-nome').value;
-  if (!confirm('Tem a certeza que quer apagar "' + nome + '"? Esta ação não pode ser revertida.')) return;
-
-  // Check if EPI has movements
-  const { data: entradas } = await sb.from('entradas').select('id').eq('epi_id', id).limit(1);
-  const { data: saidas } = await sb.from('saidas').select('id').eq('epi_id', id).limit(1);
-
-  if ((entradas && entradas.length) || (saidas && saidas.length)) {
-    return showAlert('edit-epi-alert', 'Nao e possivel apagar este EPI pois tem movimentos registados.', 'error');
-  }
+  if (!confirm('Tem a certeza que quer apagar "' + nome + '"? Esta acao nao pode ser revertida.')) return;
 
   const { error } = await sb.from('epis').delete().eq('id', id);
-  if (error) return showAlert('edit-epi-alert', error.message, 'error');
+  if (error) return showAlert('edit-epi-alert', 'Erro ao apagar: ' + error.message, 'error');
 
   closeModal('modal-edit-epi');
   await loadAll();
   renderEpis();
+}
+
+
+async function deleteEntrada(id, epiId, quantidade) {
+  if (!confirm('Apagar esta entrada? O stock sera ajustado automaticamente.')) return;
+  const { error } = await sb.from('entradas').delete().eq('id', id);
+  if (error) return alert('Erro: ' + error.message);
+  // Ajustar stock
+  const epi = allEpis.find(e => e.id === epiId);
+  if (epi) await sb.from('epis').update({ stock_atual: Math.max(0, epi.stock_atual - quantidade) }).eq('id', epiId);
+  await loadAll();
+  renderEntradas();
+}
+
+async function deleteSaida(id, epiId, qtdEntregue, qtdDevolvida) {
+  if (!confirm('Apagar esta saida? O stock sera ajustado automaticamente.')) return;
+  const { error } = await sb.from('saidas').delete().eq('id', id);
+  if (error) return alert('Erro: ' + error.message);
+  // Reverter stock
+  const epi = allEpis.find(e => e.id === epiId);
+  if (epi) await sb.from('epis').update({ 
+    stock_atual: epi.stock_atual + qtdEntregue,
+    stock_danificado: Math.max(0, epi.stock_danificado - qtdDevolvida)
+  }).eq('id', epiId);
+  await loadAll();
+  renderSaidas();
+}
+
+async function deleteColab(id, nome) {
+  if (!confirm('Apagar o colaborador "' + nome + '"?')) return;
+  const { error } = await sb.from('colaboradores').delete().eq('id', id);
+  if (error) return alert('Erro ao apagar: ' + error.message);
+  const { data } = await sb.from('colaboradores').select('*').order('nome');
+  allColabs = data || [];
+  renderColabs();
 }
 
 // Fechar modal ao clicar fora
